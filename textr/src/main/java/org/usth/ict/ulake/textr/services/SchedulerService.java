@@ -29,6 +29,8 @@ import java.util.List;
 @Transactional(Transactional.TxType.REQUIRED)
 public class SchedulerService {
     
+    private static boolean isIndexing = false;
+    
     Logger logger = LoggerFactory.getLogger(SchedulerService.class);
     
     @Autowired
@@ -51,10 +53,7 @@ public class SchedulerService {
     @ConfigProperty(name = "textr.scheduled.password")
     String password;
     
-    private static boolean isIndexing = false;
-    
-    // @Scheduled(cron = "{textr.scheduled.index}")
-    @Scheduled(every = "3s")
+    @Scheduled(cron = "{textr.scheduled.index}")
     void index() {
         if (isIndexing) {
             logger.info("A cron job is already indexing");
@@ -83,6 +82,11 @@ public class SchedulerService {
                         AuthModel authModel = new AuthModel(username, password);
                         LakeHttpResponse<Object> response = userService.getToken(authModel);
                         
+                        if (response.getCode() != 200)
+                            logger.error("Textr service has no permission access to Core service: {}, {}",
+                                         response.getMsg(),
+                                         response.getResp());
+                        
                         String bearer = "bearer " + response.getResp();
                         
                         InputStream stream = coreService.objectDataByFileId(sf.getFileId(), bearer);
@@ -95,7 +99,7 @@ public class SchedulerService {
                         logger.info("Index file {} successfully. Total indexed: {} files", cid,
                                     indexResponse.getIndexed());
                     } else logger.info("File {} is already indexed", cid);
-                    indexFilesRepo.updateStatusByCoreId(cid, IndexingStatus.STATUS_INDEXED);
+                    indexFilesRepo.updateStatusById(sf.getId(), IndexingStatus.STATUS_INDEXED);
                 } catch (Exception e) {
                     logger.error("Index file failed at cid {}: ", cid, e);
                 }
@@ -120,7 +124,7 @@ public class SchedulerService {
                 String cid = sf.getCoreId();
                 try {
                     if (indexSearchEngine.notIndexed(cid)) {
-                        indexFilesRepo.updateStatusByCoreId(cid, IndexingStatus.STATUS_SCHEDULED);
+                        indexFilesRepo.updateStatusById(sf.getId(), IndexingStatus.STATUS_SCHEDULED);
                         logger.info("Schedule file {} successfully.", cid);
                     }
                 } catch (Exception e) {

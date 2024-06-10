@@ -15,12 +15,10 @@ import java.util.Optional;
 public interface IndexFilesRepository extends PagingAndSortingRepository<IndexFiles, Long> {
     
     @Modifying
-    @Query("update IndexFiles ifs set ifs.status = :status where ifs.coreId = :coreId")
-    void updateStatusByCoreId(String coreId, IndexingStatus status);
+    @Query("update IndexFiles ifs set ifs.status = :status where ifs.id = :id")
+    void updateStatusById(Long id, IndexingStatus status);
     
     Optional<IndexFiles> findByIdAndStatus(Long id, IndexingStatus status);
-    
-    Optional<IndexFiles> findByCoreId(String coreId);
     
     Optional<IndexFiles> findByCoreIdAndStatus(String coreId, IndexingStatus status);
     
