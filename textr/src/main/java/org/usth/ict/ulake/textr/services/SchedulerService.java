@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.usth.ict.ulake.common.model.LakeHttpResponse;
 import org.usth.ict.ulake.common.model.user.AuthModel;
 import org.usth.ict.ulake.common.service.CoreService;
@@ -70,7 +71,7 @@ public class SchedulerService {
         
         do {
             isIndexing = true;
-            Pageable pageable = PageRequest.of(page, 50);
+            Pageable pageable = PageRequest.of(page, 50, Sort.by("size").ascending());
             
             scheduledFiles = indexFilesRepo.findAllByStatus(IndexingStatus.STATUS_SCHEDULED, pageable);
             for (IndexFiles sf : scheduledFiles) {
