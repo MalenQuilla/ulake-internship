@@ -30,13 +30,18 @@ public class IndexFiles {
     private Long fileId;
     
     @NotNull
+    @Column(name = "size")
+    private Long size;
+    
+    @NotNull
     @JsonIgnore
     @Column(name = "status")
     private IndexingStatus status;
     
-    public IndexFiles(String coreId, Long fileId, IndexingStatus status) {
+    public IndexFiles(String coreId, Long fileId, Long size, IndexingStatus status) {
         this.coreId = coreId;
         this.fileId = fileId;
+        this.size = size;
         this.status = status;
     }
 }

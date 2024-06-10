@@ -61,8 +61,9 @@ public class IndexFilesService {
         FileModel fileModel = response.getResp();
         String coreId = fileModel.cid;
         Long fileId = fileModel.id;
+        Long size = fileModel.size;
         
-        IndexFiles indexFiles = new IndexFiles(coreId, fileId, IndexingStatus.STATUS_SCHEDULED);
+        IndexFiles indexFiles = new IndexFiles(coreId, fileId, size, IndexingStatus.STATUS_SCHEDULED);
         indexFilesRepo.save(indexFiles);
         
         return new ServiceResponseBuilder<>(200, "File scheduled");
