@@ -137,61 +137,38 @@ public class IndexFilesService {
         return new ServiceResponseBuilder<>(200, documentResponses);
     }
     
-    public ServiceResponseBuilder<?> delete(String bearer, Long id) {
-        IndexFiles indexFile = indexFilesRepo.findById(id).orElse(null);
+    public ServiceResponseBuilder<?> delete(String bearer, Long fid) {
+        IndexFiles indexFile = indexFilesRepo.findByFileId(fid).orElse(null);
         
         if (indexFile == null)
             return new ServiceResponseBuilder<>(404, "File not found");
         
-        if (this.nonUpdatable(indexFile.getStatus(), IndexingStatus.STATUS_IGNORED))
+        if (indexFile.getStatus() == IndexingStatus.STATUS_IGNORED)
             return new ServiceResponseBuilder<>(400, "File already deleted");
         
-        Long fid = indexFile.getFileId();
         LakeHttpResponse<FileModel> response = fileService.deleteFile(bearer, fid);
         
         if (response.getCode() != 200)
             return new ServiceResponseBuilder<>(response.getCode(), response.getMsg(), response.getResp());
         
-        indexFilesRepo.updateStatusById(id, IndexingStatus.STATUS_IGNORED);
+        indexFilesRepo.updateStatusByFileId(fid, IndexingStatus.STATUS_IGNORED);
         return new ServiceResponseBuilder<>(200, "File deleted");
     }
     
-    private boolean nonUpdatable(IndexingStatus status, IndexingStatus targetStatus) {
-        if (targetStatus == IndexingStatus.STATUS_INDEXED)
-            return true;
+    public ServiceResponseBuilder<?> reindex(Long fid) {
+        IndexFiles indexFile = indexFilesRepo.findByFileId(fid).orElse(null);
         
-        // Update from ignored to scheduled
-        if (targetStatus == IndexingStatus.STATUS_SCHEDULED && status != IndexingStatus.STATUS_IGNORED)
-            return true;
+        if (indexFile == null || indexFile.getStatus() == IndexingStatus.STATUS_IGNORED)
+            return new ServiceResponseBuilder<>(400, "File not found");
         
-        // Update from scheduled and indexed to ignored
-        return targetStatus == IndexingStatus.STATUS_IGNORED && status == IndexingStatus.STATUS_IGNORED;
-    }
-    
-    public ServiceResponseBuilder<?> restore(Long id) {
-        IndexFiles indexFile = indexFilesRepo.findById(id).orElse(null);
-        
-        if (indexFile == null)
-            return new ServiceResponseBuilder<>(404, "File not found");
-        
-        if (this.nonUpdatable(indexFile.getStatus(), IndexingStatus.STATUS_SCHEDULED))
-            return new ServiceResponseBuilder<>(400, "File already restored");
-        
-        indexFilesRepo.updateStatusById(id, IndexingStatus.STATUS_SCHEDULED);
-        return new ServiceResponseBuilder<>(200, "File restored");
-    }
-    
-    public ServiceResponseBuilder<?> reindex(Long id) {
-        IndexFiles indexFile = indexFilesRepo.findByIdAndStatus(id, IndexingStatus.STATUS_INDEXED).orElse(null);
-        
-        if (indexFile == null)
-            return new ServiceResponseBuilder<>(400, "File not found or scheduled");
+        if (indexFile.getStatus() == IndexingStatus.STATUS_SCHEDULED)
+            return new ServiceResponseBuilder<>(400, "File already scheduled");
         
         String cid = indexFile.getCoreId();
         
         try {
             indexSearchEngine.deleteDoc(cid);
-            indexFilesRepo.updateStatusById(id, IndexingStatus.STATUS_SCHEDULED);
+            indexFilesRepo.updateStatusByFileId(fid, IndexingStatus.STATUS_SCHEDULED);
         } catch (Exception e) {
             logger.error("Reindex doc failed: ", e);
             return new ServiceResponseBuilder<>(500, "File reindex failed" + e.getMessage());

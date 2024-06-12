@@ -17,7 +17,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.List;
 
-@Path("/textr")
+@Path("/indices")
 @RolesAllowed({"User", "Admin"})
 @ApplicationScoped
 public class IndexFilesController {
@@ -36,21 +36,9 @@ public class IndexFilesController {
     }
     
     @GET
-    @Path("/deleted")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "get all deleted files of user")
-    public Response deleted(@DefaultValue("0") @QueryParam("page") int page,
-                            @DefaultValue("50") @QueryParam("size") int size) {
-        ServiceResponseBuilder<List<FileModel>> builder = service.listAllByStatus(IndexingStatus.STATUS_IGNORED,
-                                                                                  page, size);
-        
-        return builder.build();
-    }
-    
-    @GET
     @Path("/scheduled")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "get all files that being scheduled for index of user")
+    @Operation(summary = "get all scheduled files of user")
     public Response scheduled(@DefaultValue("0") @QueryParam("page") int page,
                               @DefaultValue("50") @QueryParam("size") int size) {
         ServiceResponseBuilder<List<FileModel>> builder = service.listAllByStatus(IndexingStatus.STATUS_SCHEDULED,
@@ -85,9 +73,9 @@ public class IndexFilesController {
     @DELETE
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "delete a file of user")
-    public Response delete(@HeaderParam("Authorization") String bearer, @PathParam("id") Long id) {
-        ServiceResponseBuilder<?> builder = service.delete(bearer, id);
+    @Operation(summary = "delete a file of user by file id")
+    public Response delete(@HeaderParam("Authorization") String bearer, @PathParam("id") Long fid) {
+        ServiceResponseBuilder<?> builder = service.delete(bearer, fid);
         
         return builder.build();
     }
@@ -95,19 +83,9 @@ public class IndexFilesController {
     @POST
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "restore a file of user")
-    public Response restore(@PathParam("id") Long id) {
-        ServiceResponseBuilder<?> builder = service.restore(id);
-        
-        return builder.build();
-    }
-    
-    @POST
-    @Path("/{id}/reindex")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "re-index a file of user")
-    public Response reindex(@PathParam("id") Long id) {
-        ServiceResponseBuilder<?> builder = service.reindex(id);
+    @Operation(summary = "re-index a file of user by file id")
+    public Response reindex(@PathParam("id") Long fid) {
+        ServiceResponseBuilder<?> builder = service.reindex(fid);
         
         return builder.build();
     }
