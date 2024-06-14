@@ -15,6 +15,7 @@ import javax.inject.Inject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.StreamingOutput;
 import java.util.List;
 
 @Path("/indices")
@@ -98,5 +99,20 @@ public class IndexFilesController {
         ServiceResponseBuilder<List<DocumentResponse>> builder = service.search(term);
         
         return builder.build();
+    }
+    
+    @GET
+    @Path("/{fid}/data")
+    @Produces(MediaType.APPLICATION_OCTET_STREAM)
+    @Operation(summary = "download file by file id")
+    public Response download(@PathParam("fid") Long fid) {
+        ServiceResponseBuilder<StreamingOutput> builder = service.download(fid);
+        
+        if (builder.getStatus() != 200)
+            return builder.build();
+        
+        return Response.ok(builder.getResp())
+                       .header("Content-Disposition", "attachment")
+                       .build();
     }
 }

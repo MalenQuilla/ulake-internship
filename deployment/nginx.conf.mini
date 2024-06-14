@@ -41,14 +41,7 @@ http {
             proxy_pass http://ulake-service-dashboard:8782;
         }
     }
-    
-    server { # service dashboard
-        listen 80;
-        server_name dashboard.ulake.usth.edu.vn;
-        location / {
-            proxy_pass http://ulake-service-dashboard:8782;
-        }
-    }
+
     server { # service core
         listen 80;
         server_name core.ulake.usth.edu.vn;
@@ -75,24 +68,14 @@ http {
     
     server { # service textr
         listen 80;
+        client_max_body_size 20000M;
         server_name textr.ulake.usth.edu.vn;
-        location / {
+        location ~* ^/(api|apidoc|q/openapi) {
             proxy_pass http://ulake-service-textr:6969;
         }
+        location / {
+            root /opt/textr;
+            try_files $uri /index.html;
+        }
     }
-
-#    server { # service admin
-#            listen 80;
-#            server_name admin.ulake.usth.edu.vn;
-#            client_max_body_size 2000M;
-#
-#            location ~* ^/(api|apidoc|q/openapi) {
-#                proxy_pass http://ulake-service-admin:8781;
-#            }
-#            location / {
-#                root /opt/admin;
-#                ssi_types application/javascript;
-#                try_files $uri $uri/ $uri.html =404;
-#            }
-#        }
 }

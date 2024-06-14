@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.usth.ict.ulake.common.model.LakeHttpResponse;
 import org.usth.ict.ulake.common.model.dashboard.FileFormModel;
 import org.usth.ict.ulake.common.model.folder.FileModel;
+import org.usth.ict.ulake.common.service.CoreService;
 import org.usth.ict.ulake.common.service.DashboardService;
 import org.usth.ict.ulake.textr.clients.FileRestClient;
 import org.usth.ict.ulake.textr.models.IndexFiles;
@@ -23,6 +24,8 @@ import org.usth.ict.ulake.textr.services.engines.IndexSearchEngineV2;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
+import javax.ws.rs.core.StreamingOutput;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,6 +48,10 @@ public class IndexFilesService {
     @Inject
     @RestClient
     FileRestClient fileService;
+    
+    @Inject
+    @RestClient
+    CoreService coreService;
     
     @Inject
     ObjectMapper mapper;
@@ -174,5 +181,25 @@ public class IndexFilesService {
             return new ServiceResponseBuilder<>(500, "File reindex failed" + e.getMessage());
         }
         return new ServiceResponseBuilder<>(200, "File re-indexing in progress");
+    }
+    
+    public ServiceResponseBuilder<StreamingOutput> download(Long fid) {
+        IndexFiles file = indexFilesRepo.findByFileId(fid).orElse(null);
+        
+        if (file == null)
+            return new ServiceResponseBuilder<>(404, "File not found");
+        
+        String bearer = "bearer " + jwt.getRawToken();
+        
+        StreamingOutput streamingOutput;
+        try {
+            InputStream stream = coreService.objectDataByFileId(fid, bearer);
+            streamingOutput = stream::transferTo;
+        } catch (Exception e) {
+            logger.error("Download doc failed: ", e);
+            return new ServiceResponseBuilder<>(500, "Download failed: " + e.getMessage());
+        }
+        
+        return new ServiceResponseBuilder<>(200, streamingOutput);
     }
 }

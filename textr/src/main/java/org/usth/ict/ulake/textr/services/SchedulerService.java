@@ -55,7 +55,7 @@ public class SchedulerService {
     String password;
     
     // @Scheduled(cron = "{textr.scheduled.index}")
-    @Scheduled(every = "3s")
+    @Scheduled(every = "600s")
     void index() {
         if (isIndexing) {
             logger.info("A cron job is already indexing");
