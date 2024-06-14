@@ -27,7 +27,7 @@ import java.io.InputStream;
 import java.util.List;
 
 @ApplicationScoped
-@Transactional(Transactional.TxType.REQUIRED)
+@Transactional
 public class SchedulerService {
     
     private static boolean isIndexing = false;

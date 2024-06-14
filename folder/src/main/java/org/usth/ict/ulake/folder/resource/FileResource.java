@@ -107,7 +107,7 @@ public class FileResource {
                                 .collect(Collectors.toList());
             UserFileSearchQuery query = new UserFileSearchQuery();
             query.ids = idList;
-            logService.post(bearer, new LogModel("Query", "Get many ids: " + ids));
+            // logService.post(bearer, new LogModel("Query", "Get many ids: " + ids));
             var files = repo.search(query);
             return resp.build(200, null, files);
         }

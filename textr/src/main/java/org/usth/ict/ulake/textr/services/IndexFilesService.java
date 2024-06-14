@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @ApplicationScoped
-@Transactional(Transactional.TxType.REQUIRED)
+@Transactional
 public class IndexFilesService {
     
     Logger logger = LoggerFactory.getLogger(IndexFilesService.class);
