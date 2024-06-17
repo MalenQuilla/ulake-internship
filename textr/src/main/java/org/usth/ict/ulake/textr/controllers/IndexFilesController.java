@@ -1,5 +1,6 @@
 package org.usth.ict.ulake.textr.controllers;
 
+import io.smallrye.mutiny.Uni;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.annotations.providers.multipart.MultipartForm;
 import org.usth.ict.ulake.common.model.dashboard.FileFormModel;
@@ -30,10 +31,11 @@ public class IndexFilesController {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Operation(summary = "upload and schedule a file")
-    public Response upload(@HeaderParam("Authorization") String bearer, @MultipartForm FileFormModel fileFormModel) {
-        ServiceResponseBuilder<?> builder = service.upload(bearer, fileFormModel);
+    public Uni<Response> upload(@HeaderParam("Authorization") String bearer,
+                               @MultipartForm FileFormModel fileFormModel) {
+        Uni<ServiceResponseBuilder<?>> builder = service.upload(bearer, fileFormModel);
         
-        return builder.build();
+        return builder.onItem().transform(ServiceResponseBuilder::build);
     }
     
     @GET
@@ -42,8 +44,9 @@ public class IndexFilesController {
     @Operation(summary = "get all scheduled files of user")
     public Response scheduled(@DefaultValue("0") @QueryParam("page") int page,
                               @DefaultValue("50") @QueryParam("size") int size) {
-        ServiceResponseBuilder<List<FileModel>> builder = service.listAllByStatus(IndexingStatus.STATUS_SCHEDULED,
-                                                                                  page, size);
+        IndexingStatus[] statuses = {IndexingStatus.STATUS_FAILED, IndexingStatus.STATUS_SCHEDULED};
+        ServiceResponseBuilder<List<FileModel>> builder = service.listAllByStatuses(List.of(statuses),
+                                                                                    page, size);
         
         return builder.build();
     }
@@ -105,14 +108,14 @@ public class IndexFilesController {
     @Path("/{fid}/data")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     @Operation(summary = "download file by file id")
-    public Response download(@PathParam("fid") Long fid) {
+    public Uni<Response> download(@PathParam("fid") Long fid) {
         ServiceResponseBuilder<StreamingOutput> builder = service.download(fid);
         
         if (builder.getStatus() != 200)
-            return builder.build();
+            return builder.buildUni();
         
-        return Response.ok(builder.getResp())
-                       .header("Content-Disposition", "attachment")
-                       .build();
+        return Uni.createFrom().item(Response.ok(builder.getResp())
+                                             .header("Content-Disposition", "attachment")
+                                             .build());
     }
 }

@@ -2,6 +2,7 @@ package org.usth.ict.ulake.textr.services;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.smallrye.mutiny.Uni;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.slf4j.Logger;
@@ -13,7 +14,7 @@ import org.usth.ict.ulake.common.model.LakeHttpResponse;
 import org.usth.ict.ulake.common.model.dashboard.FileFormModel;
 import org.usth.ict.ulake.common.model.folder.FileModel;
 import org.usth.ict.ulake.common.service.CoreService;
-import org.usth.ict.ulake.common.service.DashboardService;
+import org.usth.ict.ulake.textr.clients.DashboardRestClient;
 import org.usth.ict.ulake.textr.clients.FileRestClient;
 import org.usth.ict.ulake.textr.models.IndexFiles;
 import org.usth.ict.ulake.textr.models.IndexingStatus;
@@ -27,6 +28,7 @@ import javax.transaction.Transactional;
 import javax.ws.rs.core.StreamingOutput;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @ApplicationScoped
@@ -43,7 +45,7 @@ public class IndexFilesService {
     
     @Inject
     @RestClient
-    DashboardService dashboardService;
+    DashboardRestClient dashboardService;
     
     @Inject
     @RestClient
@@ -59,21 +61,24 @@ public class IndexFilesService {
     @Inject
     JsonWebToken jwt;
     
-    public ServiceResponseBuilder<?> upload(String bearer, FileFormModel form) {
-        LakeHttpResponse<FileModel> response = dashboardService.newFile(bearer, form);
+    public Uni<ServiceResponseBuilder<?>> upload(String bearer, FileFormModel form) {
+        Uni<LakeHttpResponse<FileModel>> response = dashboardService.newFile(bearer, form);
         
-        if (response.getCode() != 200)
-            return new ServiceResponseBuilder<>(response.getCode(), response.getMsg(), response.getResp());
-        
-        FileModel fileModel = response.getResp();
-        String coreId = fileModel.cid;
-        Long fileId = fileModel.id;
-        Long size = fileModel.size;
-        
-        IndexFiles indexFiles = new IndexFiles(coreId, fileId, size, IndexingStatus.STATUS_SCHEDULED);
-        indexFilesRepo.save(indexFiles);
-        
-        return new ServiceResponseBuilder<>(200, "File scheduled");
+        return response.onItem().transform(lakeResponse -> {
+            if (lakeResponse.getCode() != 200)
+                return new ServiceResponseBuilder<>(lakeResponse.getCode(), lakeResponse.getMsg(),
+                                                    lakeResponse.getResp());
+            
+            FileModel fileModel = lakeResponse.getResp();
+            String coreId = fileModel.cid;
+            Long fileId = fileModel.id;
+            Long size = fileModel.size;
+            
+            IndexFiles indexFiles = new IndexFiles(coreId, fileId, size, IndexingStatus.STATUS_SCHEDULED);
+            indexFilesRepo.save(indexFiles);
+            
+            return new ServiceResponseBuilder<>(200, "File scheduled");
+        }).onFailure().recoverWithItem(e -> new ServiceResponseBuilder<>(500, e.getMessage()));
     }
     
     public ServiceResponseBuilder<List<FileModel>> listAllByStatus(IndexingStatus status, int page, int size) {

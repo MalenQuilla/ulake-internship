@@ -2,6 +2,7 @@ package org.usth.ict.ulake.textr.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.smallrye.mutiny.Uni;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -33,6 +34,10 @@ public class ServiceResponseBuilder<T> {
     
     public Response build() {
         return Response.status(status).entity(this.toString()).build();
+    }
+    
+    public Uni<Response> buildUni() {
+        return Uni.createFrom().item(this.build());
     }
     
     @Override
