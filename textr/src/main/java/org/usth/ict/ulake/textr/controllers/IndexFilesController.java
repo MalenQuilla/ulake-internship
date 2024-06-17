@@ -32,7 +32,7 @@ public class IndexFilesController {
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Operation(summary = "upload and schedule a file")
     public Uni<Response> upload(@HeaderParam("Authorization") String bearer,
-                               @MultipartForm FileFormModel fileFormModel) {
+                                @MultipartForm FileFormModel fileFormModel) {
         Uni<ServiceResponseBuilder<?>> builder = service.upload(bearer, fileFormModel);
         
         return builder.onItem().transform(ServiceResponseBuilder::build);
@@ -115,7 +115,8 @@ public class IndexFilesController {
             return builder.buildUni();
         
         return Uni.createFrom().item(Response.ok(builder.getResp())
-                                             .header("Content-Disposition", "attachment")
+                                             .header("Content-Disposition",
+                                                     "attachment; filename=\"" + builder.getMsg() + "\"")
                                              .build());
     }
 }

@@ -27,8 +27,9 @@ import javax.inject.Inject;
 import javax.transaction.Transactional;
 import javax.ws.rs.core.StreamingOutput;
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 @ApplicationScoped
@@ -196,6 +197,9 @@ public class IndexFilesService {
         
         String bearer = "bearer " + jwt.getRawToken();
         
+        FileModel fileModel = this.getFilesInfo(bearer, List.of(new IndexFiles[]{file})).getResp().get(0);
+        String encodedFilename = URLEncoder.encode(fileModel.name, StandardCharsets.UTF_8).replace("+", "%20");
+        
         StreamingOutput streamingOutput;
         try {
             InputStream stream = coreService.objectDataByFileId(fid, bearer);
@@ -205,6 +209,6 @@ public class IndexFilesService {
             return new ServiceResponseBuilder<>(500, "Download failed: " + e.getMessage());
         }
         
-        return new ServiceResponseBuilder<>(200, streamingOutput);
+        return new ServiceResponseBuilder<>(200, encodedFilename, streamingOutput);
     }
 }
