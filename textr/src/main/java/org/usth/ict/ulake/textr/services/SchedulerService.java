@@ -116,7 +116,7 @@ public class SchedulerService {
         for (IndexFiles sf : scheduledFiles) {
             String cid = sf.getCoreId();
             try {
-                if (indexSearchEngine.notIndexed(cid)) {
+                if (sf.getStatus() == IndexingStatus.STATUS_FAILED || indexSearchEngine.notIndexed(cid)) {
                     // Login as admin textrService and grant access to core service
                     AuthModel authModel = new AuthModel(username, password);
                     LakeHttpResponse<Object> response = userService.getToken(authModel);
