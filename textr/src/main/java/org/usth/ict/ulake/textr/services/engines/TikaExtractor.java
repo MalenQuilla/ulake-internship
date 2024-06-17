@@ -16,7 +16,9 @@ public class TikaExtractor {
     private static final Tika tika = new Tika();
     
     public String extractText(InputStream stream) throws IOException, TikaException {
+        // TODO: should not extract to String by the way, could extract to Reader but the highlighter won't works
         log.info("Extracting text from {}", stream);
+        
         return tika.parseToString(stream);
     }
 }

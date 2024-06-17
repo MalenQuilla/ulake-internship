@@ -27,7 +27,6 @@ import java.io.InputStream;
 import java.util.List;
 
 @ApplicationScoped
-@Transactional(Transactional.TxType.REQUIRED)
 public class SchedulerService {
     
     private static boolean isIndexing = false;
@@ -54,7 +53,8 @@ public class SchedulerService {
     @ConfigProperty(name = "textr.scheduled.password")
     String password;
     
-    @Scheduled(cron = "{textr.scheduled.index}")
+    // @Scheduled(cron = "{textr.scheduled.index}")
+    @Scheduled(every = "600s")
     void index() {
         if (isIndexing) {
             logger.info("A cron job is already indexing");
@@ -72,38 +72,12 @@ public class SchedulerService {
         do {
             isIndexing = true;
             Pageable pageable = PageRequest.of(page, 50, Sort.by("size").ascending());
+            IndexingStatus[] status = {IndexingStatus.STATUS_SCHEDULED, IndexingStatus.STATUS_FAILED};
             
-            scheduledFiles = indexFilesRepo.findAllByStatus(IndexingStatus.STATUS_SCHEDULED, pageable);
-            for (IndexFiles sf : scheduledFiles) {
-                String cid = sf.getCoreId();
-                
-                try {
-                    if (indexSearchEngine.notIndexed(cid)) {
-                        // Login as admin textrService and grant access to core service
-                        AuthModel authModel = new AuthModel(username, password);
-                        LakeHttpResponse<Object> response = userService.getToken(authModel);
-                        
-                        if (response.getCode() != 200)
-                            logger.error("Textr service has no permission access to Core service: {}, {}",
-                                         response.getMsg(),
-                                         response.getResp());
-                        
-                        String bearer = "bearer " + response.getResp();
-                        
-                        InputStream stream = coreService.objectDataByFileId(sf.getFileId(), bearer);
-                        
-                        Document document = indexSearchEngine.getDocument(cid, stream);
-                        
-                        IndexResponse indexResponse = indexSearchEngine.indexDoc(document);
-                        indexSearchEngine.commit();
-                        
-                        logger.info("Index file {} successfully. Total indexed: {} files", cid,
-                                    indexResponse.getIndexed());
-                    } else logger.info("File {} is already indexed", cid);
-                    indexFilesRepo.updateStatusById(sf.getId(), IndexingStatus.STATUS_INDEXED);
-                } catch (Exception e) {
-                    logger.error("Index file failed at cid {}: ", cid, e);
-                }
+            scheduledFiles = indexFilesRepo.findAllByStatusIn(List.of(status), pageable);
+            
+            if (!scheduledFiles.isEmpty()) {
+                indexPage(scheduledFiles);
             }
             page += 1;
         } while (!scheduledFiles.isEmpty());
@@ -125,7 +99,7 @@ public class SchedulerService {
                 String cid = sf.getCoreId();
                 try {
                     if (indexSearchEngine.notIndexed(cid)) {
-                        indexFilesRepo.updateStatusById(sf.getId(), IndexingStatus.STATUS_SCHEDULED);
+                        indexFilesRepo.updateStatusByFileId(sf.getFileId(), IndexingStatus.STATUS_SCHEDULED);
                         logger.info("Schedule file {} successfully.", cid);
                     }
                 } catch (Exception e) {
@@ -135,5 +109,41 @@ public class SchedulerService {
             page += 1;
         } while (!indexedFiles.isEmpty());
         logger.info("Daily maintenance finished.");
+    }
+    
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    void indexPage(List<IndexFiles> scheduledFiles) {
+        for (IndexFiles sf : scheduledFiles) {
+            String cid = sf.getCoreId();
+            try {
+                if (sf.getStatus() == IndexingStatus.STATUS_FAILED || indexSearchEngine.notIndexed(cid)) {
+                    // Login as admin textrService and grant access to core service
+                    AuthModel authModel = new AuthModel(username, password);
+                    LakeHttpResponse<Object> response = userService.getToken(authModel);
+                    
+                    if (response.getCode() != 200) {
+                        logger.error("Textr service has no permission to access User and Core services: {}, {}",
+                                     response.getMsg(), response.getResp());
+                        return;
+                    }
+                    
+                    String bearer = "bearer " + response.getResp();
+                    try (InputStream stream = coreService.objectDataByFileId(sf.getFileId(), bearer)) {
+                        Document document = indexSearchEngine.getDocument(cid, stream);
+                        IndexResponse indexResponse = indexSearchEngine.indexDoc(document);
+                        indexSearchEngine.commit();
+                        
+                        logger.info("Index file {} successfully. Total indexed: {} files", cid,
+                                    indexResponse.getIndexed());
+                    }
+                } else {
+                    logger.info("File {} is already indexed", cid);
+                }
+                indexFilesRepo.updateStatusByFileId(sf.getFileId(), IndexingStatus.STATUS_INDEXED);
+            } catch (Exception e) {
+                logger.error("Index file failed at cid {}: ", cid, e);
+                indexFilesRepo.updateStatusByFileId(sf.getFileId(), IndexingStatus.STATUS_FAILED);
+            }
+        }
     }
 }

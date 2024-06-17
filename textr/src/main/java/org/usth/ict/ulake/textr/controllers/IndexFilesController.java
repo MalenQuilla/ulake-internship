@@ -1,5 +1,6 @@
 package org.usth.ict.ulake.textr.controllers;
 
+import io.smallrye.mutiny.Uni;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.annotations.providers.multipart.MultipartForm;
 import org.usth.ict.ulake.common.model.dashboard.FileFormModel;
@@ -15,9 +16,10 @@ import javax.inject.Inject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.StreamingOutput;
 import java.util.List;
 
-@Path("/textr")
+@Path("/indices")
 @RolesAllowed({"User", "Admin"})
 @ApplicationScoped
 public class IndexFilesController {
@@ -29,32 +31,22 @@ public class IndexFilesController {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Operation(summary = "upload and schedule a file")
-    public Response upload(@HeaderParam("Authorization") String bearer, @MultipartForm FileFormModel fileFormModel) {
-        ServiceResponseBuilder<?> builder = service.upload(bearer, fileFormModel);
+    public Uni<Response> upload(@HeaderParam("Authorization") String bearer,
+                                @MultipartForm FileFormModel fileFormModel) {
+        Uni<ServiceResponseBuilder<?>> builder = service.upload(bearer, fileFormModel);
         
-        return builder.build();
-    }
-    
-    @GET
-    @Path("/deleted")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "get all deleted files of user")
-    public Response deleted(@DefaultValue("0") @QueryParam("page") int page,
-                            @DefaultValue("50") @QueryParam("size") int size) {
-        ServiceResponseBuilder<List<FileModel>> builder = service.listAllByStatus(IndexingStatus.STATUS_IGNORED,
-                                                                                  page, size);
-        
-        return builder.build();
+        return builder.onItem().transform(ServiceResponseBuilder::build);
     }
     
     @GET
     @Path("/scheduled")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "get all files that being scheduled for index of user")
+    @Operation(summary = "get all scheduled files of user")
     public Response scheduled(@DefaultValue("0") @QueryParam("page") int page,
                               @DefaultValue("50") @QueryParam("size") int size) {
-        ServiceResponseBuilder<List<FileModel>> builder = service.listAllByStatus(IndexingStatus.STATUS_SCHEDULED,
-                                                                                  page, size);
+        IndexingStatus[] statuses = {IndexingStatus.STATUS_FAILED, IndexingStatus.STATUS_SCHEDULED};
+        ServiceResponseBuilder<List<FileModel>> builder = service.listAllByStatuses(List.of(statuses),
+                                                                                    page, size);
         
         return builder.build();
     }
@@ -85,9 +77,9 @@ public class IndexFilesController {
     @DELETE
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "delete a file of user")
-    public Response delete(@HeaderParam("Authorization") String bearer, @PathParam("id") Long id) {
-        ServiceResponseBuilder<?> builder = service.delete(bearer, id);
+    @Operation(summary = "delete a file of user by file id")
+    public Response delete(@HeaderParam("Authorization") String bearer, @PathParam("id") Long fid) {
+        ServiceResponseBuilder<?> builder = service.delete(bearer, fid);
         
         return builder.build();
     }
@@ -95,19 +87,9 @@ public class IndexFilesController {
     @POST
     @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "restore a file of user")
-    public Response restore(@PathParam("id") Long id) {
-        ServiceResponseBuilder<?> builder = service.restore(id);
-        
-        return builder.build();
-    }
-    
-    @POST
-    @Path("/{id}/reindex")
-    @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "re-index a file of user")
-    public Response reindex(@PathParam("id") Long id) {
-        ServiceResponseBuilder<?> builder = service.reindex(id);
+    @Operation(summary = "re-index a file of user by file id")
+    public Response reindex(@PathParam("id") Long fid) {
+        ServiceResponseBuilder<?> builder = service.reindex(fid);
         
         return builder.build();
     }
@@ -120,5 +102,21 @@ public class IndexFilesController {
         ServiceResponseBuilder<List<DocumentResponse>> builder = service.search(term);
         
         return builder.build();
+    }
+    
+    @GET
+    @Path("/{fid}/data")
+    @Produces(MediaType.APPLICATION_OCTET_STREAM)
+    @Operation(summary = "download file by file id")
+    public Uni<Response> download(@PathParam("fid") Long fid) {
+        ServiceResponseBuilder<StreamingOutput> builder = service.download(fid);
+        
+        if (builder.getStatus() != 200)
+            return builder.buildUni();
+        
+        return Uni.createFrom().item(Response.ok(builder.getResp())
+                                             .header("Content-Disposition",
+                                                     "attachment; filename=\"" + builder.getMsg() + "\"")
+                                             .build());
     }
 }
