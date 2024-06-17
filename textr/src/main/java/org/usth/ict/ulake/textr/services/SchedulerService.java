@@ -122,9 +122,9 @@ public class SchedulerService {
                     LakeHttpResponse<Object> response = userService.getToken(authModel);
                     
                     if (response.getCode() != 200) {
-                        logger.error("Textr service has no permission access to Core service: {}, {}",
+                        logger.error("Textr service has no permission to access User and Core services: {}, {}",
                                      response.getMsg(), response.getResp());
-                        continue;
+                        return;
                     }
                     
                     String bearer = "bearer " + response.getResp();
