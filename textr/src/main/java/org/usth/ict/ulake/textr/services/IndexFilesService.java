@@ -24,6 +24,7 @@ import org.usth.ict.ulake.textr.services.engines.IndexSearchEngineV2;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import javax.print.Doc;
 import javax.transaction.Transactional;
 import javax.ws.rs.core.StreamingOutput;
 import java.io.InputStream;
@@ -144,8 +145,11 @@ public class IndexFilesService {
         
         List<FileModel> fileModels = serviceResponseBuilder.getResp();
         
-        for (int i = 0; i < fileModels.size(); i++) {
-            documentResponses.get(i).setFileModel(fileModels.get(i));
+        for (FileModel fileModel : fileModels) {
+            for (DocumentResponse docResp : documentResponses) {
+                if (docResp.getDocument().getFileId().equals(fileModel.id))
+                    docResp.setFileModel(fileModel);
+            }
         }
         return new ServiceResponseBuilder<>(200, documentResponses);
     }
